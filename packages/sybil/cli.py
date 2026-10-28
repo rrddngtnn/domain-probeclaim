@@ -1,11 +1,4 @@
-"""ramet.cli — antarmuka baris perintah.
-
-    python -m ramet doctor                 # cek lingkungan, proxy, TLS
-    python -m ramet route                  # keputusan routing + IP keluar
-    python -m ramet mock                   # jalankan mock server
-    python -m ramet run --count 2          # jalankan melawan mock server
-    python -m ramet status                 # isi database
-"""
+"""CLI entrypoint for sybil."""
 from __future__ import annotations
 
 import argparse
@@ -19,29 +12,29 @@ from .core.store import (backup, counts, current_ip, open_db, renew_queue,
 
 
 def cmd_doctor(args):
-    print("== lingkungan ==")
+    print("== Environment ==")
     fp = fingerprint_report()
     print(f"  curl_cffi     : {fp['curl_cffi']}")
     print(f"  TLS profile   : {fp['tls']}")
     if fp["advice"]:
-        print(f"  saran         : {fp['advice']}")
+        print(f"  Advice        : {fp['advice']}")
     try:
         import fastapi  # noqa: F401
-        print("  fastapi       : ada (mock server bisa jalan)")
+        print("  fastapi       : available (mock server enabled)")
     except ImportError:
-        print("  fastapi       : TIDAK ADA (pip install fastapi uvicorn)")
-    print(f"  waktu lokal   : {schedule.now_local():%Y-%m-%d %H:%M}")
-    print(f"  jam tenang    : {'AKTIF' if schedule.in_quiet_hours() else 'tidak'}")
+        print("  fastapi       : missing (pip install fastapi uvicorn)")
+    print(f"  Local time    : {schedule.now_local():%Y-%m-%d %H:%M}")
+    print(f"  Quiet hours   : {'ACTIVE' if schedule.in_quiet_hours() else 'inactive'}")
 
-    print("\n== proxy ==")
+    print("\n== Proxy Pool ==")
     pool = netpool.ProxyPool()
-    print(f"  proxies.json  : {len(pool)} entri")
+    print(f"  proxies.json  : {len(pool)} entries")
     if len(pool):
         pool.report()
 
-    print("\n== jaringan ==")
+    print("\n== Network ==")
     ip = current_ip()
-    print(f"  IP keluar     : {ip or 'tidak terdeteksi'}")
+    print(f"  Exit IP       : {ip or 'undetected'}")
     return 0
 
 
@@ -91,7 +84,7 @@ def cmd_status(args):
     db = open_db(args.db)
     print(json.dumps(counts(db), indent=2))
     rq = renew_queue(db)
-    print(f"\njatuh tempo <=45h: {len(rq)}")
+    print(f"\nExpiring within 45 days: {len(rq)}")
     for r in rq:
         print(f"  {r['fqdn']:32} {r['expires_at'] or '-'}")
     for r in db.execute("SELECT id,status,exit_ip,email FROM accounts "
@@ -101,8 +94,8 @@ def cmd_status(args):
 
 
 def build_parser():
-    p = argparse.ArgumentParser(prog="ramet")
-    p.add_argument("--db", default="ramet.db")
+    p = argparse.ArgumentParser(prog="sybil")
+    p.add_argument("--db", default="sybil.db")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("doctor").set_defaults(fn=cmd_doctor)

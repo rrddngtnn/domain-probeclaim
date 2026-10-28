@@ -1,15 +1,4 @@
-"""ramet.mailbox — antarmuka kotak masuk yang seragam.
-
-Tiga implementasi, satu antarmuka, supaya driver tidak pernah tahu asal
-emailnya:
-
-    MockMailbox    in-memory, untuk test dan mock server lokal
-    TempMailAPI    provider temp mail berbasis REST (konfigurasi, bukan
-                   hardcode: base_url + bentuk respons)
-    ImapCatchall   IMAP ke satu inbox catch-all dengan filter per `To:`
-
-Yang wajib ada di tiap implementasi: `create()`, `messages()`, `wait_for()`.
-"""
+"""Unified mailbox interface: MockMailbox, TempMailAPI, ImapCatchall."""
 from __future__ import annotations
 
 import re
@@ -36,8 +25,6 @@ class Mailbox:
 
 
 class MailboxBackend:
-    """Kontrak. Turunan wajib mengimplementasikan ketiganya."""
-
     name = "backend"
 
     def create(self, seed: str, ttl_days: int = 30) -> Mailbox:
@@ -48,7 +35,7 @@ class MailboxBackend:
 
     def wait_for(self, box: Mailbox, pattern: str, since: str | None = None,
                  timeout: float = 120, poll: float = 3) -> tuple[str | None, Message | None]:
-        """Polling sampai pola cocok. Return (match, message) atau (None, None)."""
+        """Poll mailbox until regular expression matches message content."""
         rx = re.compile(pattern)
         deadline, seen = time.time() + timeout, set()
         while time.time() < deadline:
@@ -67,10 +54,7 @@ class MailboxBackend:
 
 
 class MockMailbox(MailboxBackend):
-    """In-memory. Dipakai mock server dan test suite.
-
-    `inject()` memungkinkan test menaruh pesan tanpa jaringan sama sekali.
-    """
+    """In-memory mailbox implementation for tests and local development."""
 
     name = "mock"
 
@@ -79,7 +63,6 @@ class MockMailbox(MailboxBackend):
         self._seq = 0
 
     def create(self, seed: str, ttl_days: int = 30) -> Mailbox:
-        # alamat harus unik per seed; seed panjang, jadi ambil hash-nya
         import hashlib
         h = hashlib.sha256(seed.encode()).hexdigest()[:14]
         addr = f"{h}@mock.test"
@@ -103,14 +86,7 @@ class MockMailbox(MailboxBackend):
 
 
 class TempMailAPI(MailboxBackend):
-    """Provider temp mail berbasis REST.
-
-    Bentuk respons dikonfigurasi lewat `paths`, jadi kelas ini tidak
-    mengandaikan satu vendor. Default meniru API yang umum:
-        POST {base}{create_path}    -> {address, token}
-        GET  {base}{list_path}      -> {messages: [...]}
-        GET  {base}{detail_path}    -> {body, html}
-    """
+    """Generic REST-based temporary email adapter."""
 
     name = "tempmail-api"
 
@@ -171,12 +147,7 @@ class TempMailAPI(MailboxBackend):
 
 
 class ImapCatchall(MailboxBackend):
-    """IMAP ke satu inbox catch-all, filter per header `To:`.
-
-    Alamat dibuat lokal (`seed@catchall_domain`) lalu dipakai untuk filter;
-    kalau server meneruskan semua `*@domain` ke satu mailbox, ini bekerja
-    tanpa membuat mailbox baru per identitas.
-    """
+    """IMAP client connecting to catch-all mailbox, filtered by recipient."""
 
     name = "imap-catchall"
 
@@ -222,7 +193,6 @@ class ImapCatchall(MailboxBackend):
 
 
 def get_backend(name: str, **kw) -> MailboxBackend:
-    """Factory. `mock` sengaja default supaya test tidak pernah ke jaringan."""
     return {"mock": MockMailbox,
             "tempmail-api": TempMailAPI,
             "imap-catchall": ImapCatchall}.get(name, MockMailbox)(**kw)

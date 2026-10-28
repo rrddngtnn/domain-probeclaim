@@ -1,15 +1,4 @@
-"""ramet.drivers.mock — driver contoh yang bicara ke mock server lokal.
-
-Ini bukan tiruan registrar tertentu. Ini tiruan POLA: signup -> kontak ->
-klaim, dengan validasi berurutan yang mengembalikan error satu per satu.
-Tujuannya dua:
-
-  1. test suite bisa jalan tanpa jaringan sama sekali
-  2. jadi referensi bentuk driver untuk registrar sungguhan
-
-Mock server-nya ada di `mock_server.py` (FastAPI). Driver ini juga bisa
-dipakai dengan base_url apa pun yang mengikuti kontrak yang sama.
-"""
+"""Mock driver implementation for local development and testing."""
 from __future__ import annotations
 
 import json
@@ -32,19 +21,17 @@ class MockDriver(RegistrarDriver):
         return Capabilities(
             dns=True, renew=True,
             payment="none", gate="email",
-            notes="mock server lokal; kontrak sama dengan registrar nyata",
+            notes="local mock server matching standard registration workflow",
         )
 
-    # ---------- helpers ----------
     def _url(self, path: str) -> str:
         return self.base_url + path
 
     def _s(self):
         if self.session is None:
-            raise RuntimeError("driver butuh session dari httpses.session_for")
+            raise RuntimeError("Driver requires active session from httpses.session_for")
         return self.session
 
-    # ---------- operasi ----------
     def signup(self, ident: dict) -> dict:
         if self.dry_run:
             return {"dry_run": True, "email": ident["email"]}
@@ -71,7 +58,7 @@ class MockDriver(RegistrarDriver):
                 "state": ident["provinsi"],
                 "postal_code": ident["kodepos"],
             },
-            "label": "Utama",
+            "label": "Primary",
         }
         r = post_json(self._s(), self._url("/api/contacts"), payload)
         if r.status_code >= 400:

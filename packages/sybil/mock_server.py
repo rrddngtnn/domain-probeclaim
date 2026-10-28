@@ -1,23 +1,4 @@
-"""mock_server.py — registrar tiruan berbasis FastAPI.
-
-Meniru POLA, bukan vendor: validasi berurutan yang membalas error satu per
-satu, kontak WHOIS wajib sebelum klaim, jatah per akun, 409 untuk nama
-terpakai. Semua state di memori.
-
-Jalankan:
-    python -m ramet.mock_server
-    uvicorn ramet.mock_server:app --port 8787
-
-Endpoint:
-    POST /api/auth/signup            {email,password[,name]}
-    POST /api/auth/login             {email,password}
-    GET  /api/auth/me
-    POST /api/contacts               {contact:{...}, label}
-    GET  /api/contacts
-    GET  /api/domains/pricing
-    POST /api/domains/register       {domain_name}
-    GET  /api/domains
-"""
+"""Mock REST registrar implementation using FastAPI."""
 from __future__ import annotations
 
 import datetime
@@ -27,12 +8,11 @@ import re
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="ramet mock registrar", version="1.0.0")
+app = FastAPI(title="sybil mock registrar", version="1.0.0")
 
 FREE_PER_ACCOUNT = 2
 SUPPORTED_TLDS = ("example.test", "test", "example")
 
-# bentuk kontak: nama field -> pesan validasi
 CONTACT_ORDER = ["first_name", "last_name", "email", "phone", "address1",
                  "city", "state", "postal_code"]
 
@@ -77,19 +57,17 @@ async def signup(request: Request, response: Response):
     if not email or "@" not in email:
         return _err(400, "invalid_email")
     if len(password) < 8:
-        return _err(400, "password_too_short", "Password minimal 8 karakter")
+        return _err(400, "password_too_short", "Password requires minimum 8 characters")
     if email in DB["users"]:
-        return _err(409, "email_taken", "Email sudah terdaftar")
+        return _err(409, "email_taken", "Email already registered")
     uid = _uid()
     DB["users"][email] = {"id": uid, "email": email, "password": password,
                           "name": body.get("name"),
                           "email_verified": False, "free_used": 0}
     sid = f"s{uid}"
     DB["sessions"][sid] = email
-    # JSONResponse langsung, bukan return dict: Response yang disuntikkan
-    # di parameter tidak dipakai kalau handler membalas objek biasa.
     resp = JSONResponse({"user": {"id": uid, "email": email,
-                                 "name": body.get("name")}}, status_code=201)
+                                  "name": body.get("name")}}, status_code=201)
     resp.set_cookie("dk_session", sid, httponly=True, samesite="lax")
     return resp
 
@@ -99,7 +77,7 @@ async def login(request: Request, response: Response):
     body = await request.json()
     u = DB["users"].get((body.get("email") or "").lower())
     if not u or u["password"] != body.get("password"):
-        return _err(400, "invalid_credentials", "Email atau password salah")
+        return _err(400, "invalid_credentials", "Invalid email or password")
     sid = f"s{u['id']}"
     DB["sessions"][sid] = u["email"]
     resp = JSONResponse({"user": {"id": u["id"], "email": u["email"],
@@ -140,7 +118,6 @@ async def save_contact(request: Request):
     contact = body.get("contact")
     if not isinstance(contact, dict):
         return _err(400, "invalid_contact")
-    # validasi berurutan: satu error per request, seperti server nyata
     for field in CONTACT_ORDER:
         if not contact.get(field):
             return _err(400, f"missing_{field}")
@@ -167,7 +144,7 @@ def pricing():
     return {
         "pricing": [{"tld": t, "register_idr": 0, "renew_idr": 11500,
                      "transfer_idr": 50000, "free": True,
-                     "promo": {"label": "mock hari pertama", "sampai": "2099-01-01"}}
+                     "promo": {"label": "mock day one", "sampai": "2099-01-01"}}
                     for t in SUPPORTED_TLDS],
         "jatah_gratis": {"sisa": FREE_PER_ACCOUNT, "per_akun": FREE_PER_ACCOUNT,
                          "harga_lewat_idr": 100},
@@ -190,8 +167,7 @@ async def register(request: Request):
     if not _sld_ok(sld):
         return _err(400, "invalid_domain_name")
     if u["email"] not in DB["contacts"]:
-        return _err(400, "missing_contact",
-                    "Isi data pemilik domain dulu, lalu daftarkan lagi.")
+        return _err(400, "missing_contact", "Provide WHOIS contact record before registration.")
     if u["free_used"] >= FREE_PER_ACCOUNT:
         return _err(402, "insufficient_balance")
     if fqdn in DB["domains"]:
@@ -206,8 +182,8 @@ async def register(request: Request):
         "domain": {"domain_name": fqdn, "duration_years": 1,
                    "price_paid_idr": 0, "nameservers": rec["nameservers"]},
         "registry": {"code": 201, "data": {"status": "ACTIVE",
-                                           "expiry_date": exp,
-                                           "epp_code": rec["epp"]}},
+                                            "expiry_date": exp,
+                                            "epp_code": rec["epp"]}},
     }, status_code=201)
 
 
@@ -222,7 +198,6 @@ def my_domains(request: Request):
 
 
 def reset():
-    """Untuk test: kosongkan semua state."""
     DB["users"].clear()
     DB["sessions"].clear()
     DB["contacts"].clear()
@@ -232,10 +207,5 @@ def reset():
 
 if __name__ == "__main__":
     import uvicorn
-    # Mock server jalan tanpa TLS dan tanpa ALPN, jadi client yang mencoba
-    # upgrade ke HTTP/2 (curl_cffi impersonate mengirim `Upgrade: h2c`)
-    # membuat uvicorn kehilangan body dan app melihat request kosong.
-    # http="h11" memaksa HTTP/1.1 polos: satu-satunya mode yang stabil
-    # untuk server lokal pengembangan.
     uvicorn.run(app, host="127.0.0.1", port=8787,
                 http="h11", ws="none", lifespan="off")

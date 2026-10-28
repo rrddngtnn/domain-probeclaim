@@ -6,16 +6,16 @@ test:
 	python3 -m pytest
 
 doctor:
-	python3 -m ramet.cli doctor
+	python3 -m sybil.cli doctor
 
 route:
-	python3 -m ramet.cli route --mode $${MODE:-auto}
+	python3 -m sybil.cli route --mode $${MODE:-auto}
 
 run:
-	python3 -m ramet.cli run --count $${N:-2} --mode $${MODE:-direct}
+	python3 -m sybil.cli run --count $${N:-2} --mode $${MODE:-direct}
 
 mock:
-	python3 -m ramet.cli mock
+	python3 -m sybil.cli mock
 
 install:
 	python3 -m pip install -e ".[dev]"

@@ -1,58 +1,51 @@
-# Menulis driver untuk layanan baru
+# Writing a Driver
 
-Driver adalah satu-satunya tempat yang boleh tahu tentang target tertentu.
-Semua yang ada di `core/`, `mailbox/`, dan `probe/` harus tetap netral.
+A driver encapsulates target-specific API endpoints, mutations, and authentication. Core modules (`core/`, `mailbox/`, and `probe/`) remain target-agnostic.
 
-## Langkah
+## Implementation Steps
 
-### 1. Petakan alurnya dulu, jangan menulis kode
+### 1. Map Network Traffic
 
-Rekam satu sesi manual di browser, ekspor HAR, lalu:
+Export a clean HAR file from a representative browser session:
 
 ```python
-from ramet.probe.schema import parse_har
-for r in parse_har("flow.har"):
-    print(r["method"], r["status"], r["url"])
-    for k, v in r["fields"].items():
+from sybil.probe.schema import parse_har
+
+for entry in parse_har("flow.har"):
+    print(entry["method"], entry["status"], entry["url"])
+    for k, v in entry["fields"].items():
         print("   ", k, "=", str(v)[:40])
 ```
 
-Yang dicari: endpoint mana yang **POST**, field apa yang dikirim, dan apakah
-ada field yang namanya tidak jelas asalnya (token, csrf, id).
+Identify state-mutating requests (`POST`/`PUT`), payload schema variations, and dynamically generated tokens (CSRF, session identifiers).
 
-### 2. Cari nama field dengan error-diffing
+### 2. Infer Payload Schema via Differential Probing
 
-Kalau endpoint membalas error per-field, jangan menebak urutannya — biarkan
-server yang menunjukkan:
+When APIs fail with single-field validation errors, discover required properties systematically:
 
 ```python
-from ramet.probe.schema import follow_missing, probe_fields
+from sybil.probe.schema import follow_missing, probe_fields
 
 def call(payload):
     r = session.post(URL, json=payload)
     return r.status_code, r.text
 
-# langkah 1: field mana yang berpengaruh?
-base, found = probe_fields(call, ["domain", "fqdn", "domain_name", "sld"], "x.test")
+# 1. Identify active candidate keys
+base, active_fields = probe_fields(call, ["domain", "fqdn", "domain_name", "sld"], "sample.test")
 
-# langkah 2: ikuti error missing_* sampai habis
-status, payload, body = follow_missing(call, {}, VALUES)
+# 2. Incrementally satisfy validation requirements
+status, final_payload, body = follow_missing(call, {}, KNOWN_VALUES)
 ```
 
-`probe_fields` membandingkan error untuk satu field pada satu waktu. Field
-yang **mengubah** error adalah field yang benar-benar dibaca; sisanya
-diabaikan server.
+`probe_fields` monitors response error differentials. When a submitted field changes the returned error code, that field is actively evaluated by server validation.
 
-Kalau error-nya `invalid_contact` untuk semua field tunggal, biasanya server
-mengharapkan objek bersarang. Coba bungkus:
-`{"contact": {...}}`, lalu perhatikan apakah errornya berubah menjadi
-`missing_<field>` — di titik itu kamu sudah masuk.
+If payloads return broad validation errors (e.g. `invalid_contact`), the server likely expects nested structures such as `{"contact": {...}}`.
 
-### 3. Isi driver
+### 3. Implement Driver Class
 
 ```python
-from ramet.drivers.base import Capabilities, ClaimResult, RegistrarDriver
-from ramet.core.httpses import post_json
+from sybil.drivers.base import Capabilities, ClaimResult, RegistrarDriver
+from sybil.core.httpses import post_json
 
 
 class ServiceDriver(RegistrarDriver):
@@ -62,14 +55,16 @@ class ServiceDriver(RegistrarDriver):
 
     @property
     def caps(self):
-        return Capabilities(payment="qris", gate="email")
+        return Capabilities(payment="none", gate="email")
 
     def _url(self, path):
         return self.base_url + path
 
     def signup(self, ident):
-        r = post_json(self.session, self._url("/api/auth/signup"),
-                      {"email": ident["email"], "password": ident["password"]})
+        r = post_json(self.session, self._url("/api/auth/signup"), {
+            "email": ident["email"],
+            "password": ident["password"],
+        })
         r.raise_for_status()
         return r.json()
 
@@ -84,57 +79,36 @@ class ServiceDriver(RegistrarDriver):
         return r.json()
 
     def claim(self, fqdn):
-        r = post_json(self.session, self._url("/api/domains/register"),
-                      {"domain_name": fqdn})
+        r = post_json(self.session, self._url("/api/domains/register"), {
+            "domain_name": fqdn,
+        })
         body = r.json() if r.content else {}
         if r.status_code >= 400:
-            return ClaimResult(ok=False, fqdn=fqdn,
-                               error=body.get("error"), raw=body)
-        return ClaimResult(ok=True, fqdn=fqdn,
-                           expires_at=body.get("expires_at"),
+            return ClaimResult(ok=False, fqdn=fqdn, error=body.get("error"), raw=body)
+        return ClaimResult(ok=True, fqdn=fqdn, expires_at=body.get("expires_at"),
                            epp=body.get("epp"), raw=body)
 ```
 
-### 4. Deklarasikan kemampuan dengan jujur
+### 4. Declare Operational Constraints
 
-`Capabilities(payment=..., gate=...)` menentukan apakah driver boleh jalan
-otomatis:
+Capabilities define whether automated runs can proceed without human intervention:
 
-| payment | arti |
+| `payment` | Description |
 |---|---|
-| `none` | gratis, tanpa pembayaran |
-| `balance` | saldo prepaid toko |
-| `qris` / `bank` | transfer domestik |
-| `voucher` | kode yang bisa dibeli terpisah |
-| `card` | kartu — `unattended()` otomatis `False` |
+| `none` | Free tier / promo without payment gateway |
+| `balance` | Internal prepaid balance |
+| `card` | Card processing — automatically sets `unattended=False` |
+| `crypto` | Native crypto settlement |
 
-| gate | arti |
+| `gate` | Description |
 |---|---|
-| `none` | langsung bisa |
-| `email` | butuh verifikasi email (bisa diotomasi lewat mailbox) |
-| `kyc` | butuh dokumen identitas |
-| `3ds` | butuh challenge dari issuer |
-| `captcha` | butuh penyelesaian captcha |
-| `manual_review` | order ditahan manusia |
+| `none` | Instant registration |
+| `email` | Email verification link or OTP required |
+| `kyc` | Identity verification barrier |
+| `3ds` | Interactive 3DS challenge |
+| `captcha` | Interactive or automated captcha solver required |
+| `manual_review` | Queued for manual administrative approval |
 
-Jangan tulis `payment="none"` kalau sebenarnya ada gerbang kartu di tengah
-alur. Nilai itu dipakai untuk memutuskan, jadi salah isi = salah keputusan.
+### 5. Validate with In-Memory Mock Server
 
-### 5. Uji tanpa jaringan
-
-Tambahkan handler ke mock server yang meniru kontrak baru itu, lalu tulis tes
-yang menembak mock. Kontrak yang diuji offline jauh lebih murah daripada
-menembak layanan nyata.
-
-## Jebakan yang sudah pernah ketemu
-
-- **HTTP/2 upgrade di server tanpa TLS.** Kalau target `http://`, paksa
-  `http_version="v1"`. Sudah ditangani `runner` otomatis.
-- **Cookie sesi.** Client harus mempertahankan cookie antar request. Di tes,
-  `TestClient` per-instance sudah mempertahankannya; jangan bikin client baru
-  per request.
-- **Field bernama `label` atau sejenisnya di level atas.** Kalau sebuah objek
-  bersarang terus ditolak dengan "field X kosong" padahal X sudah di dalam
-  objek, coba taruh X di level atas.
-- **Nama field bahasa campur.** Backend sering memakai snake_case Inggris
-  walau UI-nya bahasa lain. Ambil dari HAR, jangan dari label UI.
+Add endpoint handlers to `mock_server.py` representing target behavior and write offline tests before issuing live network requests.

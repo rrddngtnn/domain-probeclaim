@@ -1,12 +1,4 @@
-"""ramet.runner — orkestrasi: satu akun dari seed sampai domain.
-
-Ini satu-satunya tempat yang menyatukan route (proxy/tanpa), driver, store,
-mailbox, dan guard IP. Driver tidak tahu soal proxy; netpool tidak tahu
-soal driver.
-
-Urutan langkah sengaja eksplisit supaya bisa dihentikan di titik mana pun
-dan dicatat ke `events`.
-"""
+"""Pipeline runner orchestrating multi-identity account lifecycle."""
 from __future__ import annotations
 
 import datetime
@@ -19,7 +11,6 @@ from .core.store import (add_account, add_domain, check_ip_budget, log,
                          set_status)
 from .drivers.base import GATES, RegistrarDriver
 
-
 DEFAULT_GAPS = {"min": 1500, "max": 4500, "rest_chance": 0.2}
 
 
@@ -29,8 +20,6 @@ class RunResult(dict):
 
 
 def new_seed(i: int = 0) -> str:
-    """Seed unik. Detik saja tidak cukup: dua akun dalam detik yang sama
-    menghasilkan email identik, dan server menolaknya sebagai duplikat."""
     import uuid
     return (datetime.datetime.now().strftime("%Y%m%d%H%M%S")
             + f"-{i}-{uuid.uuid4().hex[:8]}")
@@ -40,11 +29,7 @@ def run_account(db, driver_cls, tenant_id, seed=None, route=None,
                 mailbox=None, max_per_ip=3, ip_window_days=7,
                 quiet_hours=True, dry_run=False, proxy_mode="auto",
                 pool=None, rng=None, uid_label=None):
-    """Buat satu akun dan (kalau driver mendukung) klaim satu domain.
-
-    Return RunResult dengan kunci: seed, account_id, email, mode, exit_ip,
-    verified, claimed, expires, epp, error.
-    """
+    """Execute lifecycle for a single identity instance."""
     r = rng or random.Random(seed)
     seed = seed or new_seed()
     res = RunResult(seed=seed, mode=None, exit_ip=None)
@@ -53,30 +38,25 @@ def run_account(db, driver_cls, tenant_id, seed=None, route=None,
         log(db, 0, "skip", f"quiet_hours seed={seed}")
         return RunResult(res, error="quiet_hours")
 
-    # ---- routing: satu-satunya tempat proxy diputuskan
     route = route or netpool.resolve_route(seed, pool=pool, mode=proxy_mode)
     res["mode"], res["exit_ip"] = route.mode, route.exit_ip
     if not route.ok:
         log(db, 0, "route_fail", route.error)
         return RunResult(res, error=route.error)
 
-    # ---- guard IP: berlaku sama untuk direct maupun pool
     allowed, hist = check_ip_budget(db, route.exit_ip, max_per_ip, ip_window_days)
     if not allowed:
         log(db, 0, "ip_guard",
-            f"{route.exit_ip} sudah {len(hist)} akun/{ip_window_days}h "
-            f"(batas {max_per_ip})")
+            f"{route.exit_ip} reached {len(hist)} accounts/{ip_window_days}d "
+            f"(threshold {max_per_ip})")
         return RunResult(res, error="ip_guard", existing=len(hist))
 
-    # ---- identitas + inbox
     ident = make_identity(seed)
     if mailbox is not None:
         box = mailbox.create(seed)
         ident["email"] = box.address
         ident["email_token"] = box.token
 
-    # Server lokal tanpa TLS tidak paham `Upgrade: h2c`; paksa HTTP/1.1
-    # hanya untuk target http://. Untuk https:// biarkan ALPN normal.
     base = getattr(driver_cls, "base_url", "") or ""
     http_ver = "v1" if base.startswith("http://") else None
     session, ua = session_for(seed, route.proxy, http_version=http_ver)
@@ -88,12 +68,11 @@ def run_account(db, driver_cls, tenant_id, seed=None, route=None,
     res["account_id"], res["email"] = acc_id, ident["email"]
     log(db, acc_id, "route", f"mode={route.mode} ip={route.exit_ip} ua={ua[:36]}")
 
-    # ---- signup
     try:
         out = driver.signup(ident)
         log(db, acc_id, "signup", str(out)[:200])
     except NotImplementedError:
-        return RunResult(res, error="driver tanpa signup")
+        return RunResult(res, error="driver missing signup")
     except Exception as e:
         set_status(db, acc_id, "dead", "signup error")
         log(db, acc_id, "signup_fail", repr(e)[:300])
@@ -105,7 +84,6 @@ def run_account(db, driver_cls, tenant_id, seed=None, route=None,
 
     schedule.sleep_human(3, 9, rng=r)
 
-    # ---- kontak WHOIS
     contact_ok = True
     try:
         c = driver.save_contact(ident)
@@ -116,7 +94,6 @@ def run_account(db, driver_cls, tenant_id, seed=None, route=None,
         contact_ok = False
         log(db, acc_id, "contact_fail", repr(e)[:300])
 
-    # ---- klaim
     claimed = None
     if driver.caps.claim and contact_ok:
         fqdn = _pick_fqdn(seed, driver)
@@ -144,18 +121,17 @@ def _tld(fqdn: str) -> str:
 
 
 def _pick_fqdn(seed: str, driver: RegistrarDriver) -> str:
-    """Nama ber-seed. Bukan pola <kata>01/02 — itu satu cluster."""
     import hashlib
     rng = random.Random(hashlib.sha256(("fqdn" + seed).encode()).digest())
-    kata = ["projek", "arsip", "catatan", "studio", "bengkel", "gudang",
-            "simpul", "akar", "layar", "peta", "laci", "pojok"]
+    words = ["project", "archive", "ledger", "studio", "workshop", "storage",
+             "node", "stream", "core", "mesh", "frame", "corner"]
     tld = getattr(driver, "default_tld", "example.test")
-    return f"{rng.choice(kata)}{rng.randint(1000, 99999)}.{tld}"
+    return f"{rng.choice(words)}{rng.randint(1000, 99999)}.{tld}"
 
 
 def run_batch(db, driver_cls, tenant_id, count=1, gaps=None, no_sleep=False,
               **kw):
-    """Jalankan beberapa akun dengan jeda. Berhenti kalau guard menolak."""
+    """Run sequential identities with randomized delays between actions."""
     g = dict(DEFAULT_GAPS, **(gaps or {}))
     out = []
     for i in range(count):
@@ -173,6 +149,5 @@ def run_batch(db, driver_cls, tenant_id, count=1, gaps=None, no_sleep=False,
 
 
 def describe_gates(driver_cls) -> list[tuple[str, str]]:
-    c = driver_cls.caps if isinstance(driver_cls.caps, type(None)) else None
-    return [(k, f"{v}{'' if driver_cls.caps.unattended() else ' (butuh manusia)'}")
+    return [(k, f"{v}{'' if driver_cls.caps.unattended() else ' (manual review)'}")
             for k, v in GATES.items()]

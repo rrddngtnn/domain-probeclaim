@@ -1,14 +1,4 @@
-"""ramet.core.httpses — sesi HTTP dengan fingerprint yang konsisten.
-
-Kenapa bukan requests telanjang: urutan header, Accept-Encoding, dan TLS
-fingerprint (JA3) `requests` beda jauh dari Chrome. Kalau target di belakang
-Cloudflare bot management, itu langsung kebaca.
-
-curl_cffi menambal bagian TLS; kalau belum terpasang, fallback ke requests
-dengan header yang dirapikan. Proxy opsional dan diteruskan apa adanya —
-modul ini tidak pernah memutuskan apakah lewat proxy atau tidak, itu tugas
-netpool.Route.
-"""
+"""HTTP sessions with TLS and browser impersonation profiles."""
 from __future__ import annotations
 
 import json
@@ -53,13 +43,7 @@ def user_agent(seed: str) -> str:
 
 def session_for(seed: str, proxy=None, impersonate=IMPERSONATE,
                 http_version=None):
-    """Return (session, ua). `proxy` dict {"url": ...} atau None.
-
-    `http_version="v1"` memaksa HTTP/1.1. Wajib untuk server lokal tanpa TLS:
-    profil impersonate mengirim `Upgrade: h2c`, dan server pengembangan yang
-    tidak paham h2c akan kehilangan body request. Untuk target nyata (HTTPS)
-    biarkan None supaya ALPN berjalan normal.
-    """
+    """Create configured session with user agent and optional proxy."""
     ua = user_agent(seed)
     headers = dict(BASE_HEADERS, **{"User-Agent": ua})
     px = proxy["url"] if proxy else None
@@ -93,12 +77,7 @@ def get_json(s, url, **kw):
 
 
 def post_json(s, url, payload, headers=None, timeout=25):
-    """Kirim JSON. Body di-serialize di sini, bukan diserahkan ke `json=`.
-
-    Alasannya: session bisa berupa curl_cffi, requests, atau objek apa pun
-    yang meniru keduanya. Serialisasi eksplisit membuat perilakunya sama
-    di semua backend, termasuk saat dites dengan TestClient.
-    """
+    """Serialize payload explicitly to maintain consistent behavior across engines."""
     h = {"Content-Type": "application/json",
          "Accept": "application/json, text/plain, */*"}
     if headers:
@@ -109,11 +88,10 @@ def post_json(s, url, payload, headers=None, timeout=25):
 
 
 def fingerprint_report():
-    """Ringkasan kemampuan sesi. Dipakai di CLI dan test."""
     return {
         "curl_cffi": HAS_CFFI,
         "impersonate": IMPERSONATE if HAS_CFFI else None,
         "tls": "chrome131" if HAS_CFFI else "requests-default",
         "advice": (None if HAS_CFFI else
-                   "pip install curl_cffi untuk TLS fingerprint Chrome"),
+                   "pip install curl_cffi for Chrome TLS fingerprinting"),
     }

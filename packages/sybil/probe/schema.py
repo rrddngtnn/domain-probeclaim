@@ -1,12 +1,4 @@
-"""ramet.probe.schema — schema discovery lewat error-diffing.
-
-Ide intinya: banyak REST API membalas error satu per satu. Dengan mengirim
-satu field pada satu waktu dan membandingkan kode error, kita bisa tahu
-field mana yang dibaca server tanpa pernah menebak buta.
-
-Netral: fungsi di sini tidak tahu endpoint, field, atau vendor. Semua
-masukan lewat parameter.
-"""
+"""Error-diffing schema discovery and HAR log extraction."""
 from __future__ import annotations
 
 import json
@@ -15,7 +7,7 @@ import time
 
 
 def classify(body) -> str:
-    """Ambil kunci error dari body apa pun."""
+    """Extract primary error token or status string from response payload."""
     if isinstance(body, dict):
         return str(body.get("error") or body.get("message") or "ok")
     try:
@@ -29,11 +21,7 @@ def classify(body) -> str:
 
 def probe_fields(call, candidates: list[str], sample_value, baseline=None,
                  delay=(0.0, 0.0), sleep=time.sleep, log=None):
-    """Kirim satu field per panggilan; laporkan yang mengubah error.
-
-    call(payload) -> (status, body)
-    Return (baseline_error, {field: (status, error)})
-    """
+    """Probe candidate fields individually to observe differential error responses."""
     found = {}
     base = baseline
     for f in candidates:
@@ -53,13 +41,7 @@ def probe_fields(call, candidates: list[str], sample_value, baseline=None,
 
 def follow_missing(call, initial: dict, values: dict, max_steps=30,
                    delay=(0.0, 0.0), sleep=time.sleep, log=None):
-    """Ikuti error `missing_*` sampai tidak ada lagi, mengisi field yang
-    diminta. Ini yang mengubah penebakan jadi pemetaan.
-
-    call(payload) -> (status, body)
-    values: peta field -> nilai yang akan dipakai
-    Return (status_akhir, payload_akhir, body_akhir)
-    """
+    """Incrementally satisfy missing_* validation errors until payload is accepted."""
     payload = dict(initial)
     status, body = None, None
     for step in range(max_steps):
@@ -73,8 +55,6 @@ def follow_missing(call, initial: dict, values: dict, max_steps=30,
             break
         field = k[len("missing_"):]
         if field not in values:
-            # tidak ada nilai kandidat: pakai placeholder supaya bisa maju,
-            # tapi catat. Pemanggil yang memutuskan berarti atau tidak.
             payload[field] = f"placeholder-{field}"
             continue
         payload[field] = values[field]
@@ -82,7 +62,7 @@ def follow_missing(call, initial: dict, values: dict, max_steps=30,
 
 
 def parse_har(path: str) -> list[dict]:
-    """Ambil request non-asset dari file HAR. Untuk memetakan alur manual."""
+    """Extract primary REST mutations and payloads from HAR export."""
     with open(path) as f:
         entries = json.load(f)["log"]["entries"]
     out = []

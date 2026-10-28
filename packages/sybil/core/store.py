@@ -1,12 +1,4 @@
-"""ramet.core.store — satu sumber kebenaran. SQLite, satu file.
-
-Tabel `events` bukan debug log. Kalau satu akun perlu diperiksa, butuh
-rekonstruksi apa yang terjadi di akun itu dalam hitungan detik. Tanpa
-events, yang tersisa cuma status akhir tanpa cerita.
-
-Netral: tidak ada satu pun kolom yang mengacu ke provider tertentu.
-`tenant` menggantikan nama registrar, `fqdn` menggantikan domain name.
-"""
+"""SQLite persistence for multi-identity tenants, accounts, and telemetry."""
 from __future__ import annotations
 
 import datetime
@@ -74,7 +66,7 @@ def utcnow() -> str:
             .strftime("%Y-%m-%dT%H:%M:%SZ"))
 
 
-def open_db(path: str = "ramet.db") -> sqlite3.Connection:
+def open_db(path: str = "sybil.db") -> sqlite3.Connection:
     db = sqlite3.connect(path)
     db.executescript(SCHEMA)
     db.row_factory = sqlite3.Row
@@ -109,7 +101,7 @@ def add_account(db, tenant_id, ident, proxy=None, exit_ip=None) -> int:
 
 def set_status(db, account_id, status, note=""):
     if status not in STATUSES:
-        raise ValueError(f"status tidak dikenal: {status}")
+        raise ValueError(f"Unknown status: {status}")
     db.execute("UPDATE accounts SET status=?,last_action=? WHERE id=?",
                (status, utcnow(), account_id))
     db.commit()
@@ -126,17 +118,10 @@ def add_domain(db, account_id, fqdn, tld, expires_at=None, epp=None,
     log(db, account_id, "domain_added", fqdn)
 
 
-# --------------------------------------------------------------------------
-# Guard IP — netral, tidak mengandaikan proxy ada atau tidak
-# --------------------------------------------------------------------------
 def ip_history(db, exit_ip, days=7):
-    """Akun dari exit IP yang sama dalam N hari. Termasuk yang lewat proxy
-    maupun langsung: kalau tanpa proxy, exit_ip adalah IP publik mesin ini."""
+    """Retrieve non-dead accounts recorded for an egress IP within N days."""
     cut = (datetime.datetime.now(datetime.timezone.utc)
            - datetime.timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    # perbandingan string ISO aman karena semuanya UTC dan formatnya tetap;
-    # `days=0` berarti hanya yang dibuat pada detik ini, jadi baris dari
-    # detik sebelumnya tidak ikut.
     return db.execute(
         "SELECT id,email,status,created_at FROM accounts "
         "WHERE exit_ip=? AND created_at>? AND status!='dead' ORDER BY id",
@@ -144,8 +129,7 @@ def ip_history(db, exit_ip, days=7):
 
 
 def check_ip_budget(db, exit_ip, max_per_ip, days=7):
-    """Return (boleh: bool, riwayat: list). Terpisah supaya bisa diuji
-    tanpa menyentuh jaringan."""
+    """Verify IP usage threshold. Returns (allowed: bool, history: list)."""
     if not exit_ip:
         return True, []
     hist = ip_history(db, exit_ip, days)
@@ -153,10 +137,7 @@ def check_ip_budget(db, exit_ip, max_per_ip, days=7):
 
 
 def current_ip(timeout=12):
-    """IP publik keluar. Dipakai mode tanpa-proxy untuk mengisi exit_ip.
-
-    Sengaja tidak pakai requests supaya modul ini tanpa dependensi.
-    """
+    """Detect current public IP without external third-party dependencies."""
     try:
         import urllib.request
         with urllib.request.urlopen("https://api.ipify.org", timeout=timeout) as r:
@@ -166,9 +147,6 @@ def current_ip(timeout=12):
         return None
 
 
-# --------------------------------------------------------------------------
-# Perawatan
-# --------------------------------------------------------------------------
 def renew_queue(db, days_ahead=45):
     cut = (datetime.date.today() + datetime.timedelta(days=days_ahead)).isoformat()
     return db.execute(
@@ -190,15 +168,15 @@ def counts(db) -> dict:
     }
 
 
-def backup(db_path="ramet.db", outdir="backups", keep=7) -> str:
+def backup(db_path="sybil.db", outdir="backups", keep=7) -> str:
     os.makedirs(outdir, exist_ok=True)
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    dst = os.path.join(outdir, f"ramet-{stamp}.db")
+    dst = os.path.join(outdir, f"sybil-{stamp}.db")
     src, out = sqlite3.connect(db_path), sqlite3.connect(dst)
     src.backup(out)
     out.close()
     src.close()
-    olds = sorted(f for f in os.listdir(outdir) if f.startswith("ramet-"))
+    olds = sorted(f for f in os.listdir(outdir) if f.startswith("sybil-"))
     for f in olds[:-keep]:
         os.remove(os.path.join(outdir, f))
     return dst

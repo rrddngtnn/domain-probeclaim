@@ -1,31 +1,18 @@
-"""ramet.drivers.base — antarmuka seragam untuk satu registrar.
-
-Tujuan modul ini: kode di atasnya (CLI, runner, test) tidak pernah tahu
-registrar mana yang dipakai, dan tidak pernah tahu apakah operasinya lewat
-proxy. Dua abstraksi itu disuntikkan.
-
-Driver hanya mendeklarasikan kemampuan dan cara bayar. Runner yang
-memutuskan boleh atau tidak, berdasarkan `payment` dan `gate`.
-"""
+"""Base driver contract for target services."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-
-# Kategori pembayaran. Dipakai runner untuk memutuskan jalur mana yang
-# dijalankan tanpa intervensi. "card" bukan larangan — itu penanda bahwa
-# driver tidak bisa jalan unattended tanpa PSP sandbox.
 PAYMENT_KINDS = ("none", "balance", "qris", "bank", "paypal", "voucher",
                  "crypto", "card", "unknown")
 
-# Gerbang yang membuat otomasi penuh tidak mungkin.
 GATES = {
-    "none": "tidak ada gerbang",
-    "email": "butuh verifikasi email",
-    "kyc": "butuh dokumen identitas",
-    "3ds": "butuh challenge 3DS dari issuer",
-    "captcha": "butuh penyelesaian captcha",
-    "manual_review": "order ditahan untuk review manual",
+    "none": "no verification barrier",
+    "email": "requires email confirmation",
+    "kyc": "requires identity documentation",
+    "3ds": "requires 3DS issuer challenge",
+    "captcha": "requires captcha solver",
+    "manual_review": "order queued for manual inspection",
 }
 
 
@@ -53,28 +40,25 @@ class Capabilities:
     notes: str = ""
 
     def unattended(self) -> bool:
-        """Bisa jalan tanpa manusia di tengah jalan?"""
         if self.payment == "card":
             return False
         return self.gate in ("none", "email")
 
 
 class RegistrarDriver:
-    """Kontrak. Turunan wajib mengisi `name` dan `caps`, lalu
-    mengimplementasikan minimal signup/claim/list_domains."""
+    """Standard driver contract. Subclasses implement signup, claim, and list_domains."""
 
     name = "base"
     base_url = ""
 
     def __init__(self, route=None, session=None, mailbox=None, db=None,
                  dry_run=False):
-        self.route = route            # netpool.Route: direct atau pool
-        self.session = session        # sudah ber-fingerprint
+        self.route = route
+        self.session = session
         self.mailbox = mailbox
         self.db = db
         self.dry_run = dry_run
 
-    # ---------- deklarasi ----------
     @property
     def caps(self) -> Capabilities:
         raise NotImplementedError
@@ -98,7 +82,6 @@ class RegistrarDriver:
                      ("signup", "contact", "claim", "list_domains", "dns", "renew")},
         }
 
-    # ---------- operasi ----------
     def signup(self, ident: dict) -> dict:
         raise NotImplementedError
 
