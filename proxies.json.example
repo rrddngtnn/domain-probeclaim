@@ -1,0 +1,7 @@
+{
+  "_comment": "Salin jadi proxies.json lalu isi. Kosong = mode direct (tanpa proxy).",
+  "proxies": [
+    {"url": "http://user:pass@host:port", "kind": "residential"},
+    {"url": "http://user:pass@host:port", "kind": "mobile"}
+  ]
+}

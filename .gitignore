@@ -1,0 +1,17 @@
+# state & kredensial — jangan pernah di-commit
+*.db
+*.db-journal
+backups/
+proxies.json
+.env
+*.har
+*.log
+
+# build & cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+.venv/
