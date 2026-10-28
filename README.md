@@ -7,8 +7,12 @@ identitas, jadwal berjitter, dan schema discovery lewat error-diffing.
 Repo ini **tidak netral**, dan tidak berpura-pura netral. Isinya adalah
 komponen yang berguna ketika satu operator perlu mengelola banyak identitas:
 pembuat identitas deterministik, penjaga budget per IP, penjadwal manusiawi,
-dan pencatat event. Nama "ramet" dipilih karena itu memang polanya —
-seperti singleton, tapi banyak instance ber-key.
+dan pencatat event. Nama "ramet" diambil dari biologi: satu koloni klonal
+menghasilkan banyak **ramet** — individu-individu identik secara genetik,
+masing-masing berdiri sendiri. Itu persis mekanisme yang diimplementasikan
+kode ini: satu seed menghasilkan satu identitas, deterministik, dan library
+ini mengelola banyak di antaranya berdampingan dengan rute jaringan dan
+catatan masing-masing.
 
 Kalau yang kamu butuhkan cuma schema discovery, ambil `probe/schema.py` saja;
 itu satu-satunya modul yang berdiri sendiri tanpa asumsi multi-identitas.
