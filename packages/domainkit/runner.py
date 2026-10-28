@@ -29,7 +29,11 @@ class RunResult(dict):
 
 
 def new_seed(i: int = 0) -> str:
-    return datetime.datetime.now().strftime("%Y%m%d%H%M%S") + f"-{i}"
+    """Seed unik. Detik saja tidak cukup: dua akun dalam detik yang sama
+    menghasilkan email identik, dan server menolaknya sebagai duplikat."""
+    import uuid
+    return (datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            + f"-{i}-{uuid.uuid4().hex[:8]}")
 
 
 def run_account(db, driver_cls, tenant_id, seed=None, route=None,

@@ -36,9 +36,12 @@ def human_delay(base=90, spread=180, rest_chance=0.12, rng=None):
 
 
 def sleep_human(base=90, spread=180, rest_chance=0.12, rng=None,
-                sleep=time.sleep):
+                sleep=None):
+    """Jeda antar aksi. `sleep` bisa diganti untuk tes/pengamatan;
+    default dibaca saat dipanggil supaya monkeypatch pada `time.sleep`
+    benar-benar berpengaruh."""
     d = human_delay(base, spread, rest_chance, rng)
-    sleep(d)
+    (sleep or time.sleep)(d)
     return d
 
 

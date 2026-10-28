@@ -79,9 +79,12 @@ class MockMailbox(MailboxBackend):
         self._seq = 0
 
     def create(self, seed: str, ttl_days: int = 30) -> Mailbox:
-        addr = f"{seed[:14].replace('_', '').lower()}@mock.test"
+        # alamat harus unik per seed; seed panjang, jadi ambil hash-nya
+        import hashlib
+        h = hashlib.sha256(seed.encode()).hexdigest()[:14]
+        addr = f"{h}@mock.test"
         self._stores.setdefault(addr, [])
-        return Mailbox(address=addr, token=f"tok-{seed[:8]}",
+        return Mailbox(address=addr, token=f"tok-{h[:8]}",
                        expires_at="2099-01-01T00:00:00Z")
 
     def inject(self, address: str, sender: str, subject: str, body: str,
