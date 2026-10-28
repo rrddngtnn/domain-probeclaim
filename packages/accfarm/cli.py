@@ -1,4 +1,4 @@
-"""CLI entrypoint for sybil."""
+"""CLI entrypoint for accfarm."""
 from __future__ import annotations
 
 import argparse
@@ -94,8 +94,8 @@ def cmd_status(args):
 
 
 def build_parser():
-    p = argparse.ArgumentParser(prog="sybil")
-    p.add_argument("--db", default="sybil.db")
+    p = argparse.ArgumentParser(prog="accfarm")
+    p.add_argument("--db", default="accfarm.db")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("doctor").set_defaults(fn=cmd_doctor)

@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT / "packages"))
 
 @pytest.fixture()
 def mock_app():
-    from sybil import mock_server
+    from accfarm import mock_server
     mock_server.reset()
     from fastapi.testclient import TestClient
     return mock_server.app, TestClient(mock_server.app)
@@ -21,12 +21,12 @@ def mock_app():
 @pytest.fixture()
 def client(mock_app):
     from fastapi.testclient import TestClient
-    from sybil import mock_server
+    from accfarm import mock_server
     mock_server.reset()
     return TestClient(mock_server.app)
 
 
 @pytest.fixture()
 def db(tmp_path):
-    from sybil.core.store import open_db
+    from accfarm.core.store import open_db
     return open_db(str(tmp_path / "t.db"))

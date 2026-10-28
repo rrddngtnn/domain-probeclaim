@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import random
 
-from sybil.core import schedule
-from sybil.core.identity import make_identity, redact
-from sybil.core.store import (add_account, add_domain, check_ip_budget,
+from accfarm.core import schedule
+from accfarm.core.identity import make_identity, redact
+from accfarm.core.store import (add_account, add_domain, check_ip_budget,
                               counts, ip_history, log, open_db,
                               renew_queue, set_status, upsert_tenant)
 

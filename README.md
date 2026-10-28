@@ -1,8 +1,8 @@
-# sybil
+# accfarm
 
-Deterministic synthetic identity orchestration, sticky network routing, and differential schema discovery.
+Deterministic multi-account farming framework for web applications, registration pipelines, and account lifecycles.
 
-sybil provides tools for automated registration pipelines, multi-identity account lifecycles, and reverse-engineering undocumented API endpoints.
+`accfarm` provides target-agnostic infrastructure for automated multi-account management: deterministic synthetic identities, sticky residential/mobile proxy routing, scheduled human jitter, and error-diffing schema discovery.
 
 ```
              ┌──────────────────────────────────────────┐
@@ -35,7 +35,7 @@ sybil provides tools for automated registration pipelines, multi-identity accoun
 ## Installation
 
 ```bash
-git clone <repo> sybil && cd sybil
+git clone <repo> accfarm && cd accfarm
 python3 -m pip install -e ".[dev]"
 ```
 
@@ -101,7 +101,7 @@ Proxies are deterministically assigned based on the identity seed to avoid mid-l
 When target APIs return granular validation errors, `probe.schema` extracts the expected JSON schema automatically:
 
 ```python
-from sybil.probe.schema import follow_missing, probe_fields
+from accfarm.probe.schema import follow_missing, probe_fields
 
 def call(payload):
     r = session.post(url, json=payload)
@@ -117,11 +117,11 @@ status, payload, body = follow_missing(
 ## CLI Usage
 
 ```bash
-sybil doctor                 # Inspect runtime environment, TLS profiles, and proxies
-sybil route --mode auto      # Evaluate routing decisions
-sybil mock                   # Start in-memory mock service
-sybil run --count 2          # Run automated registration batch
-sybil status                 # Display database summary
+accfarm doctor                 # Inspect runtime environment, TLS profiles, and proxies
+accfarm route --mode auto      # Evaluate routing decisions
+accfarm mock                   # Start in-memory mock service
+accfarm run --count 2          # Run automated registration batch
+accfarm status                 # Display database summary
 ```
 
 ## Test Suite
