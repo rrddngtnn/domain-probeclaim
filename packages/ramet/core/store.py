@@ -1,4 +1,4 @@
-"""domainkit.core.store — satu sumber kebenaran. SQLite, satu file.
+"""ramet.core.store — satu sumber kebenaran. SQLite, satu file.
 
 Tabel `events` bukan debug log. Kalau satu akun perlu diperiksa, butuh
 rekonstruksi apa yang terjadi di akun itu dalam hitungan detik. Tanpa
@@ -74,7 +74,7 @@ def utcnow() -> str:
             .strftime("%Y-%m-%dT%H:%M:%SZ"))
 
 
-def open_db(path: str = "domainkit.db") -> sqlite3.Connection:
+def open_db(path: str = "ramet.db") -> sqlite3.Connection:
     db = sqlite3.connect(path)
     db.executescript(SCHEMA)
     db.row_factory = sqlite3.Row
@@ -190,15 +190,15 @@ def counts(db) -> dict:
     }
 
 
-def backup(db_path="domainkit.db", outdir="backups", keep=7) -> str:
+def backup(db_path="ramet.db", outdir="backups", keep=7) -> str:
     os.makedirs(outdir, exist_ok=True)
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    dst = os.path.join(outdir, f"domainkit-{stamp}.db")
+    dst = os.path.join(outdir, f"ramet-{stamp}.db")
     src, out = sqlite3.connect(db_path), sqlite3.connect(dst)
     src.backup(out)
     out.close()
     src.close()
-    olds = sorted(f for f in os.listdir(outdir) if f.startswith("domainkit-"))
+    olds = sorted(f for f in os.listdir(outdir) if f.startswith("ramet-"))
     for f in olds[:-keep]:
         os.remove(os.path.join(outdir, f))
     return dst

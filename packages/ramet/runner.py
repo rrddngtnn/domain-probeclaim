@@ -1,4 +1,4 @@
-"""domainkit.runner — orkestrasi: satu akun dari seed sampai domain.
+"""ramet.runner — orkestrasi: satu akun dari seed sampai domain.
 
 Ini satu-satunya tempat yang menyatukan route (proxy/tanpa), driver, store,
 mailbox, dan guard IP. Driver tidak tahu soal proxy; netpool tidak tahu

@@ -6,14 +6,14 @@ import random
 
 import pytest
 
-from domainkit.core import netpool
-from domainkit.core.identity import make_identity
-from domainkit.core.store import counts, open_db, upsert_tenant
-from domainkit.drivers.base import Capabilities, GATES, RegistrarDriver
-from domainkit.drivers.mock import MockDriver
-from domainkit.mailbox import MockMailbox
-from domainkit.probe.schema import classify, follow_missing, probe_fields
-from domainkit.runner import run_account, run_batch
+from ramet.core import netpool
+from ramet.core.identity import make_identity
+from ramet.core.store import counts, open_db, upsert_tenant
+from ramet.drivers.base import Capabilities, GATES, RegistrarDriver
+from ramet.drivers.mock import MockDriver
+from ramet.mailbox import MockMailbox
+from ramet.probe.schema import classify, follow_missing, probe_fields
+from ramet.runner import run_account, run_batch
 
 
 # ---------------- mock server kontrak ----------------
@@ -217,7 +217,7 @@ def _patch_session(monkeypatch, client):
             return self.c.get(self._path(url), headers=kw.get("headers"),
                               params=kw.get("params"))
 
-    import domainkit.runner as runner_mod
+    import ramet.runner as runner_mod
     monkeypatch.setattr(runner_mod, "session_for",
                         lambda seed, proxy=None, **kw: (FakeSession(client), "ua"))
     return FakeSession
@@ -264,7 +264,7 @@ def test_runner_mode_pool_memakai_proxy(tmp_path, monkeypatch, client, db):
 
 
 def test_runner_dry_run_tidak_menyentuh_server(db):
-    from domainkit.core.store import counts as c
+    from ramet.core.store import counts as c
     tid = upsert_tenant(db, "mock", "mock")
     route = netpool.resolve_route("s", mode="direct", ip_checker=lambda: "10.9.9.9")
     res = run_account(db, MockDriver, tid, seed="dry-1", route=route,

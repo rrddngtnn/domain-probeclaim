@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "domainkit"
+name = "ramet"
 version = "0.1.0"
-description = "Toolkit untuk memetakan dan mengotomasi alur registrasi web app"
+description = "Many synthetic identities against one service: auditable SQLite state, per-identity proxy routing, humanised scheduling, error-driven schema discovery"
 requires-python = ">=3.10"
 dependencies = [
     "requests>=2.31",
@@ -17,7 +17,7 @@ mock = ["fastapi>=0.110", "uvicorn>=0.27"]
 dev = ["pytest>=8", "fastapi>=0.110", "uvicorn>=0.27", "httpx>=0.27"]
 
 [project.scripts]
-domainkit = "domainkit.cli:main"
+ramet = "ramet.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["packages"]

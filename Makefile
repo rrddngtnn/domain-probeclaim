@@ -6,16 +6,16 @@ test:
 	python3 -m pytest
 
 doctor:
-	python3 -m domainkit.cli doctor
+	python3 -m ramet.cli doctor
 
 route:
-	python3 -m domainkit.cli route --mode $${MODE:-auto}
+	python3 -m ramet.cli route --mode $${MODE:-auto}
 
 run:
-	python3 -m domainkit.cli run --count $${N:-2} --mode $${MODE:-direct}
+	python3 -m ramet.cli run --count $${N:-2} --mode $${MODE:-direct}
 
 mock:
-	python3 -m domainkit.cli mock
+	python3 -m ramet.cli mock
 
 install:
 	python3 -m pip install -e ".[dev]"

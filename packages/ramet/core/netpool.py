@@ -1,4 +1,4 @@
-"""domainkit.core.netpool — alokasi proxy sticky + fallback tanpa proxy.
+"""ramet.core.netpool — alokasi proxy sticky + fallback tanpa proxy.
 
 Dua mode, satu antarmuka. Ini yang bikin driver di atasnya tidak pernah
 tahu apakah operasinya lewat proxy atau langsung:

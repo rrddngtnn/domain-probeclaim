@@ -1,4 +1,4 @@
-"""domainkit.drivers.mock — driver contoh yang bicara ke mock server lokal.
+"""ramet.drivers.mock — driver contoh yang bicara ke mock server lokal.
 
 Ini bukan tiruan registrar tertentu. Ini tiruan POLA: signup -> kontak ->
 klaim, dengan validasi berurutan yang mengembalikan error satu per satu.

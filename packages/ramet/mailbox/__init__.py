@@ -1,4 +1,4 @@
-"""domainkit.mailbox — antarmuka kotak masuk yang seragam.
+"""ramet.mailbox — antarmuka kotak masuk yang seragam.
 
 Tiga implementasi, satu antarmuka, supaya driver tidak pernah tahu asal
 emailnya:

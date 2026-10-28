@@ -5,8 +5,8 @@ satu, kontak WHOIS wajib sebelum klaim, jatah per akun, 409 untuk nama
 terpakai. Semua state di memori.
 
 Jalankan:
-    python -m domainkit.mock_server
-    uvicorn domainkit.mock_server:app --port 8787
+    python -m ramet.mock_server
+    uvicorn ramet.mock_server:app --port 8787
 
 Endpoint:
     POST /api/auth/signup            {email,password[,name]}
@@ -27,7 +27,7 @@ import re
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="domainkit mock registrar", version="1.0.0")
+app = FastAPI(title="ramet mock registrar", version="1.0.0")
 
 FREE_PER_ACCOUNT = 2
 SUPPORTED_TLDS = ("example.test", "test", "example")

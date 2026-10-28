@@ -1,4 +1,4 @@
-"""domainkit.core.schedule — jitter manusiawi & jam tenang.
+"""ramet.core.schedule — jitter manusiawi & jam tenang.
 
 Ini pembeda antara operasi yang hidup lama dan yang mati di hari ketiga.
 Tidak ada manusia yang mendaftar lima akun dalam tiga menit. Behavioral

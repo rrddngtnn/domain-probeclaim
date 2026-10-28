@@ -10,7 +10,7 @@ Semua yang ada di `core/`, `mailbox/`, dan `probe/` harus tetap netral.
 Rekam satu sesi manual di browser, ekspor HAR, lalu:
 
 ```python
-from domainkit.probe.schema import parse_har
+from ramet.probe.schema import parse_har
 for r in parse_har("flow.har"):
     print(r["method"], r["status"], r["url"])
     for k, v in r["fields"].items():
@@ -26,7 +26,7 @@ Kalau endpoint membalas error per-field, jangan menebak urutannya — biarkan
 server yang menunjukkan:
 
 ```python
-from domainkit.probe.schema import follow_missing, probe_fields
+from ramet.probe.schema import follow_missing, probe_fields
 
 def call(payload):
     r = session.post(URL, json=payload)
@@ -51,8 +51,8 @@ mengharapkan objek bersarang. Coba bungkus:
 ### 3. Isi driver
 
 ```python
-from domainkit.drivers.base import Capabilities, ClaimResult, RegistrarDriver
-from domainkit.core.httpses import post_json
+from ramet.drivers.base import Capabilities, ClaimResult, RegistrarDriver
+from ramet.core.httpses import post_json
 
 
 class ServiceDriver(RegistrarDriver):

@@ -1,4 +1,4 @@
-"""domainkit.probe.schema — schema discovery lewat error-diffing.
+"""ramet.probe.schema — schema discovery lewat error-diffing.
 
 Ide intinya: banyak REST API membalas error satu per satu. Dengan mengirim
 satu field pada satu waktu dan membandingkan kode error, kita bisa tahu

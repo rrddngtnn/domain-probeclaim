@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from domainkit.core import netpool
+from ramet.core import netpool
 
 
 def fake_pool(tmp_path, entries):
@@ -130,19 +130,19 @@ def test_pool_file_rusak_tidak_crash(tmp_path):
 
 # ---------------- sesi & fingerprint ----------------
 def test_session_direct_tanpa_proxy():
-    from domainkit.core.httpses import session_for
+    from ramet.core.httpses import session_for
     s, ua = session_for("s", None)
     assert ua.startswith("Mozilla/")
     assert not getattr(s, "proxies", None)
 
 
 def test_session_pool_membawa_proxy():
-    from domainkit.core.httpses import session_for
+    from ramet.core.httpses import session_for
     s, _ = session_for("s", {"url": "http://u:p@h:9"})
     proxies = getattr(s, "proxies", None) or {}
     assert proxies.get("https") == "http://u:p@h:9"
 
 
 def test_ua_stabil_per_seed():
-    from domainkit.core.httpses import user_agent
+    from ramet.core.httpses import user_agent
     assert user_agent("a") == user_agent("a")

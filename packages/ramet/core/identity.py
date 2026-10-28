@@ -1,4 +1,4 @@
-"""domainkit.core.identity — seed -> identitas sintetis yang deterministik.
+"""ramet.core.identity — seed -> identitas sintetis yang deterministik.
 
 Kenapa seed: satu string menggerakkan SEMUA field. Kalau operasi perlu
 dihentikan dan dilanjutkan besok, cukup simpan seed-nya. Tanpa ini tiap

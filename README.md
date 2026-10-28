@@ -1,13 +1,18 @@
-# domainkit
+# ramet
 
-Toolkit Python untuk **memetakan dan mengotomasi alur registrasi web app** —
-dengan state management, routing jaringan yang bisa dipilih (proxy atau
-langsung), dan schema discovery lewat error-diffing.
+Toolkit Python untuk menjalankan **banyak identitas sintetis terhadap satu
+layanan** — dengan state SQLite yang bisa diaudit, routing proxy per
+identitas, jadwal berjitter, dan schema discovery lewat error-diffing.
 
-Repo ini **netral terhadap target**. Tidak ada endpoint, nama field, atau
-vendor yang di-hardcode. Pengetahuan tentang satu layanan tertentu hidup di
-sebuah *driver*, dan driver contoh yang disertakan hanya bicara ke mock
-server lokal.
+Repo ini **tidak netral**, dan tidak berpura-pura netral. Isinya adalah
+komponen yang berguna ketika satu operator perlu mengelola banyak identitas:
+pembuat identitas deterministik, penjaga budget per IP, penjadwal manusiawi,
+dan pencatat event. Nama "ramet" dipilih karena itu memang polanya —
+seperti singleton, tapi banyak instance ber-key.
+
+Kalau yang kamu butuhkan cuma schema discovery, ambil `probe/schema.py` saja;
+itu satu-satunya modul yang berdiri sendiri tanpa asumsi multi-identitas.
+
 
 ```
              ┌──────────────────────────────────────────┐
@@ -40,12 +45,12 @@ menulis kode HTTP-nya. Yang sulit:
 - mencatat **apa yang sudah dilakukan** supaya bisa diulang dan diaudit
 - menjaga **jejak jaringan** tidak berantakan
 
-domainkit mengangkat empat hal itu jadi komponen terpisah yang bisa diuji.
+ramet mengangkat empat hal itu jadi komponen terpisah yang bisa diuji.
 
 ## Pasang
 
 ```bash
-git clone <repo> domainkit && cd domainkit
+git clone <repo> ramet && cd ramet
 python3 -m pip install -e ".[dev]"
 ```
 
@@ -75,9 +80,9 @@ Contoh keluaran `make run`:
 Satu antarmuka, dua perilaku. Driver tidak pernah tahu mana yang dipakai.
 
 ```bash
-domainkit route --mode direct   # tidak pakai proxy
-domainkit route --mode pool     # wajib proxy; gagal kalau pool kosong/mati
-domainkit route --mode auto     # pakai pool kalau ada isinya, kalau tidak direct
+ramet route --mode direct   # tidak pakai proxy
+ramet route --mode pool     # wajib proxy; gagal kalau pool kosong/mati
+ramet route --mode auto     # pakai pool kalau ada isinya, kalau tidak direct
 ```
 
 | | `direct` | `pool` |
@@ -112,7 +117,7 @@ Server yang membalas error satu per satu bisa dipakai sebagai peta.
 `probe.schema` mengikuti jejak itu:
 
 ```python
-from domainkit.probe.schema import follow_missing, probe_fields
+from ramet.probe.schema import follow_missing, probe_fields
 
 def call(payload):
     r = session.post(url, json=payload)
@@ -130,7 +135,7 @@ error — yaitu mana yang benar-benar dibaca.
 ## Menulis driver
 
 ```python
-from domainkit.drivers.base import Capabilities, ClaimResult, RegistrarDriver
+from ramet.drivers.base import Capabilities, ClaimResult, RegistrarDriver
 
 class MyDriver(RegistrarDriver):
     name = "myservice"
@@ -155,11 +160,11 @@ bukan larangan, tapi penanda bahwa jalur itu butuh manusia atau sandbox PSP.
 ## CLI
 
 ```
-domainkit doctor                 # lingkungan, TLS, proxy, IP keluar
-domainkit route --mode auto      # keputusan routing
-domainkit mock                   # mock registrar
-domainkit run --count 2          # jalankan melawan mock
-domainkit status                 # isi database
+ramet doctor                 # lingkungan, TLS, proxy, IP keluar
+ramet route --mode auto      # keputusan routing
+ramet mock                   # mock registrar
+ramet run --count 2          # jalankan melawan mock
+ramet status                 # isi database
 ```
 
 ## Tes
@@ -185,7 +190,7 @@ Tidak ada satu pun tes yang membuka socket ke internet.
 ## Struktur
 
 ```
-packages/domainkit/
+packages/ramet/
 ├── core/
 │   ├── identity.py     seed -> identitas deterministik
 │   ├── store.py        sqlite: tenants/accounts/domains/events + guard IP

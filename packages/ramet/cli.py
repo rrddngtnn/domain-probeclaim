@@ -1,10 +1,10 @@
-"""domainkit.cli — antarmuka baris perintah.
+"""ramet.cli — antarmuka baris perintah.
 
-    python -m domainkit doctor                 # cek lingkungan, proxy, TLS
-    python -m domainkit route                  # keputusan routing + IP keluar
-    python -m domainkit mock                   # jalankan mock server
-    python -m domainkit run --count 2          # jalankan melawan mock server
-    python -m domainkit status                 # isi database
+    python -m ramet doctor                 # cek lingkungan, proxy, TLS
+    python -m ramet route                  # keputusan routing + IP keluar
+    python -m ramet mock                   # jalankan mock server
+    python -m ramet run --count 2          # jalankan melawan mock server
+    python -m ramet status                 # isi database
 """
 from __future__ import annotations
 
@@ -101,8 +101,8 @@ def cmd_status(args):
 
 
 def build_parser():
-    p = argparse.ArgumentParser(prog="domainkit")
-    p.add_argument("--db", default="domainkit.db")
+    p = argparse.ArgumentParser(prog="ramet")
+    p.add_argument("--db", default="ramet.db")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("doctor").set_defaults(fn=cmd_doctor)

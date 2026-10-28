@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import random
 
-from domainkit.core import schedule
-from domainkit.core.identity import make_identity, redact
-from domainkit.core.store import (add_account, add_domain, check_ip_budget,
+from ramet.core import schedule
+from ramet.core.identity import make_identity, redact
+from ramet.core.store import (add_account, add_domain, check_ip_budget,
                                  counts, ip_history, log, open_db,
                                  renew_queue, set_status, upsert_tenant)
 

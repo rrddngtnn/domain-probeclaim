@@ -1,4 +1,4 @@
-"""domainkit.drivers.base — antarmuka seragam untuk satu registrar.
+"""ramet.drivers.base — antarmuka seragam untuk satu registrar.
 
 Tujuan modul ini: kode di atasnya (CLI, runner, test) tidak pernah tahu
 registrar mana yang dipakai, dan tidak pernah tahu apakah operasinya lewat

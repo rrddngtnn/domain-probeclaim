@@ -1,4 +1,4 @@
-"""domainkit.core.httpses — sesi HTTP dengan fingerprint yang konsisten.
+"""ramet.core.httpses — sesi HTTP dengan fingerprint yang konsisten.
 
 Kenapa bukan requests telanjang: urutan header, Accept-Encoding, dan TLS
 fingerprint (JA3) `requests` beda jauh dari Chrome. Kalau target di belakang
