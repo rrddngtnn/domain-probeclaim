@@ -6,14 +6,14 @@ import random
 
 import pytest
 
-from accfarm.core import netpool
-from accfarm.core.identity import make_identity
-from accfarm.core.store import counts, open_db, upsert_tenant
-from accfarm.drivers.base import Capabilities, GATES, RegistrarDriver
-from accfarm.drivers.mock import MockDriver
-from accfarm.mailbox import MockMailbox
-from accfarm.probe.schema import classify, follow_missing, probe_fields
-from accfarm.runner import run_account, run_batch
+from domain_probeclaim.core import netpool
+from domain_probeclaim.core.identity import make_identity
+from domain_probeclaim.core.store import counts, open_db, upsert_tenant
+from domain_probeclaim.drivers.base import Capabilities, GATES, RegistrarDriver
+from domain_probeclaim.drivers.mock import MockDriver
+from domain_probeclaim.mailbox import MockMailbox
+from domain_probeclaim.probe.schema import classify, follow_missing, probe_fields
+from domain_probeclaim.runner import run_account, run_batch
 
 
 def test_mock_signup_and_me(client):
@@ -206,7 +206,7 @@ def _patch_session(monkeypatch, client):
             return self.c.get(self._path(url), headers=kw.get("headers"),
                               params=kw.get("params"))
 
-    import accfarm.runner as runner_mod
+    import domain_probeclaim.runner as runner_mod
     monkeypatch.setattr(runner_mod, "session_for",
                         lambda seed, proxy=None, **kw: (FakeSession(client), "ua"))
     return FakeSession
@@ -253,7 +253,7 @@ def test_runner_mode_pool_routes_via_proxy(tmp_path, monkeypatch, client, db):
 
 
 def test_runner_dry_run_preserves_state(db):
-    from accfarm.core.store import counts as c
+    from domain_probeclaim.core.store import counts as c
     tid = upsert_tenant(db, "mock", "mock")
     route = netpool.resolve_route("s", mode="direct", ip_checker=lambda: "10.9.9.9")
     res = run_account(db, MockDriver, tid, seed="dry-1", route=route,

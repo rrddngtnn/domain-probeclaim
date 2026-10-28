@@ -8,7 +8,7 @@ import re
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="accfarm mock registrar", version="1.0.0")
+app = FastAPI(title="domain_probeclaim mock registrar", version="1.0.0")
 
 FREE_PER_ACCOUNT = 2
 SUPPORTED_TLDS = ("example.test", "test", "example")

@@ -9,7 +9,7 @@ A driver encapsulates target-specific API endpoints, mutations, and authenticati
 Export a clean HAR file from a representative browser session:
 
 ```python
-from accfarm.probe.schema import parse_har
+from domain_probeclaim.probe.schema import parse_har
 
 for entry in parse_har("flow.har"):
     print(entry["method"], entry["status"], entry["url"])
@@ -24,7 +24,7 @@ Identify state-mutating requests (`POST`/`PUT`), payload schema variations, and 
 When APIs fail with single-field validation errors, discover required properties systematically:
 
 ```python
-from accfarm.probe.schema import follow_missing, probe_fields
+from domain_probeclaim.probe.schema import follow_missing, probe_fields
 
 def call(payload):
     r = session.post(URL, json=payload)
@@ -44,8 +44,8 @@ If payloads return broad validation errors (e.g. `invalid_contact`), the server 
 ### 3. Implement Driver Class
 
 ```python
-from accfarm.drivers.base import Capabilities, ClaimResult, RegistrarDriver
-from accfarm.core.httpses import post_json
+from domain_probeclaim.drivers.base import Capabilities, ClaimResult, RegistrarDriver
+from domain_probeclaim.core.httpses import post_json
 
 
 class ServiceDriver(RegistrarDriver):

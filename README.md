@@ -1,8 +1,13 @@
-# accfarm
+# domain-probeclaim
 
-Deterministic multi-account farming framework for web applications, registration pipelines, and account lifecycles.
+Undocumented registrar schema discovery and automated batch promo claim engine.
 
-`accfarm` provides target-agnostic infrastructure for automated multi-account management: deterministic synthetic identities, sticky residential/mobile proxy routing, scheduled human jitter, and error-diffing schema discovery.
+`domain-probeclaim` is scoped specifically for reverse-engineering closed registrar registration endpoints and executing automated promo claims:
+
+1. **Differential Error Probing (`probe.schema`)**: Map missing contact and registration parameters by diffing API error validation chains (`missing_contact` -> `missing_first_name` -> `missing_label`).
+2. **Deterministic Identity Seeding (`core.identity`)**: Generate valid localized WHOIS profiles from a single seed.
+3. **Sticky Route & IP Guard (`core.netpool`, `core.store`)**: Proxy-to-identity binding with strict per-IP budget pacing.
+4. **Automated Claim & Quota Handling (`runner`)**: Pipeline handling disposable email verification, contact submission, promo slot claim (stopping upon quota exhaustion / `402`), and EPP code extraction into SQLite.
 
 ```
              ┌──────────────────────────────────────────┐
@@ -35,7 +40,7 @@ Deterministic multi-account farming framework for web applications, registration
 ## Installation
 
 ```bash
-git clone <repo> accfarm && cd accfarm
+git clone <repo> domain_probeclaim && cd domain_probeclaim
 python3 -m pip install -e ".[dev]"
 ```
 
@@ -101,7 +106,7 @@ Proxies are deterministically assigned based on the identity seed to avoid mid-l
 When target APIs return granular validation errors, `probe.schema` extracts the expected JSON schema automatically:
 
 ```python
-from accfarm.probe.schema import follow_missing, probe_fields
+from domain_probeclaim.probe.schema import follow_missing, probe_fields
 
 def call(payload):
     r = session.post(url, json=payload)
@@ -117,11 +122,11 @@ status, payload, body = follow_missing(
 ## CLI Usage
 
 ```bash
-accfarm doctor                 # Inspect runtime environment, TLS profiles, and proxies
-accfarm route --mode auto      # Evaluate routing decisions
-accfarm mock                   # Start in-memory mock service
-accfarm run --count 2          # Run automated registration batch
-accfarm status                 # Display database summary
+domain_probeclaim doctor                 # Inspect runtime environment, TLS profiles, and proxies
+domain_probeclaim route --mode auto      # Evaluate routing decisions
+domain_probeclaim mock                   # Start in-memory mock service
+domain_probeclaim run --count 2          # Run automated registration batch
+domain_probeclaim status                 # Display database summary
 ```
 
 ## Test Suite

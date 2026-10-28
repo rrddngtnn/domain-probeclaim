@@ -66,7 +66,7 @@ def utcnow() -> str:
             .strftime("%Y-%m-%dT%H:%M:%SZ"))
 
 
-def open_db(path: str = "accfarm.db") -> sqlite3.Connection:
+def open_db(path: str = "domain_probeclaim.db") -> sqlite3.Connection:
     db = sqlite3.connect(path)
     db.executescript(SCHEMA)
     db.row_factory = sqlite3.Row
@@ -168,15 +168,15 @@ def counts(db) -> dict:
     }
 
 
-def backup(db_path="accfarm.db", outdir="backups", keep=7) -> str:
+def backup(db_path="domain_probeclaim.db", outdir="backups", keep=7) -> str:
     os.makedirs(outdir, exist_ok=True)
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    dst = os.path.join(outdir, f"accfarm-{stamp}.db")
+    dst = os.path.join(outdir, f"domain_probeclaim-{stamp}.db")
     src, out = sqlite3.connect(db_path), sqlite3.connect(dst)
     src.backup(out)
     out.close()
     src.close()
-    olds = sorted(f for f in os.listdir(outdir) if f.startswith("accfarm-"))
+    olds = sorted(f for f in os.listdir(outdir) if f.startswith("domain_probeclaim-"))
     for f in olds[:-keep]:
         os.remove(os.path.join(outdir, f))
     return dst

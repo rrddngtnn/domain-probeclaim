@@ -6,16 +6,16 @@ test:
 	python3 -m pytest
 
 doctor:
-	python3 -m accfarm.cli doctor
+	python3 -m domain_probeclaim.cli doctor
 
 route:
-	python3 -m accfarm.cli route --mode $${MODE:-auto}
+	python3 -m domain_probeclaim.cli route --mode $${MODE:-auto}
 
 run:
-	python3 -m accfarm.cli run --count $${N:-2} --mode $${MODE:-direct}
+	python3 -m domain_probeclaim.cli run --count $${N:-2} --mode $${MODE:-direct}
 
 mock:
-	python3 -m accfarm.cli mock
+	python3 -m domain_probeclaim.cli mock
 
 install:
 	python3 -m pip install -e ".[dev]"

@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import random
 
-from accfarm.core import schedule
-from accfarm.core.identity import make_identity, redact
-from accfarm.core.store import (add_account, add_domain, check_ip_budget,
+from domain_probeclaim.core import schedule
+from domain_probeclaim.core.identity import make_identity, redact
+from domain_probeclaim.core.store import (add_account, add_domain, check_ip_budget,
                               counts, ip_history, log, open_db,
                               renew_queue, set_status, upsert_tenant)
 

@@ -1,4 +1,4 @@
-"""CLI entrypoint for accfarm."""
+"""CLI entrypoint for domain_probeclaim."""
 from __future__ import annotations
 
 import argparse
@@ -94,8 +94,8 @@ def cmd_status(args):
 
 
 def build_parser():
-    p = argparse.ArgumentParser(prog="accfarm")
-    p.add_argument("--db", default="accfarm.db")
+    p = argparse.ArgumentParser(prog="domain_probeclaim")
+    p.add_argument("--db", default="domain_probeclaim.db")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("doctor").set_defaults(fn=cmd_doctor)
