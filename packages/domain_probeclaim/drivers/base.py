@@ -3,12 +3,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-PAYMENT_KINDS = ("none", "balance", "qris", "bank", "paypal", "voucher",
+PAYMENT_KINDS = ("none", "balance", "qris", "bank", "sepa", "paypal", "voucher",
                  "crypto", "card", "unknown")
 
 GATES = {
     "none": "no verification barrier",
     "email": "requires email confirmation",
+    "turnstile": "requires Cloudflare Turnstile token",
     "kyc": "requires identity documentation",
     "3ds": "requires 3DS issuer challenge",
     "captcha": "requires captcha solver",
@@ -37,9 +38,13 @@ class Capabilities:
     renew: bool = False
     payment: str = "unknown"
     gate: str = "email"
+    captcha_kind: str | None = None
+    locale: str = "id"
     notes: str = ""
 
-    def unattended(self) -> bool:
+    def unattended(self, chain=None) -> bool:
+        if chain is not None:
+            return chain.unattended
         if self.payment == "card":
             return False
         return self.gate in ("none", "email")

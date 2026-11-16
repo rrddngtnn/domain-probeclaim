@@ -4,6 +4,7 @@ from __future__ import annotations
 import datetime
 import random
 
+from .adapters.resolve import ChainConfig, build_chain
 from .core import netpool, schedule
 from .core.httpses import session_for
 from .core.identity import make_identity
@@ -28,7 +29,8 @@ def new_seed(i: int = 0) -> str:
 def run_account(db, driver_cls, tenant_id, seed=None, route=None,
                 mailbox=None, max_per_ip=3, ip_window_days=7,
                 quiet_hours=True, dry_run=False, proxy_mode="auto",
-                pool=None, rng=None, uid_label=None):
+                pool=None, rng=None, uid_label=None,
+                chain=None, chain_config: ChainConfig | None = None):
     """Execute lifecycle for a single identity instance."""
     r = rng or random.Random(seed)
     seed = seed or new_seed()
@@ -51,22 +53,89 @@ def run_account(db, driver_cls, tenant_id, seed=None, route=None,
             f"(threshold {max_per_ip})")
         return RunResult(res, error="ip_guard", existing=len(hist))
 
-    ident = make_identity(seed)
-    if mailbox is not None:
-        box = mailbox.create(seed)
-        ident["email"] = box.address
-        ident["email_token"] = box.token
-
     base = getattr(driver_cls, "base_url", "") or ""
     http_ver = "v1" if base.startswith("http://") else None
-    session, ua = session_for(seed, route.proxy, http_version=http_ver)
-    driver = driver_cls(route=route, session=session, mailbox=mailbox,
-                        db=db, dry_run=dry_run)
-    res["driver"], res["unadattended_ok"] = driver.name, driver.caps.unattended()
+
+    if chain is None and chain_config is not None:
+        probe_drv = driver_cls(route=route, mailbox=mailbox, db=db, dry_run=dry_run)
+        chain = build_chain(probe_drv.caps, mailbox=mailbox, config=chain_config)
+
+    ctx: dict = {}
+    if chain is not None:
+        if not chain.ok:
+            blocked_names = ",".join(a.name for a in chain.blocked)
+            log(db, 0, "chain_blocked", blocked_names)
+            return RunResult(res, error=f"chain_blocked:{blocked_names}")
+
+        ctx = {
+            "seed": seed,
+            "route": route,
+            "base_url": base,
+            "mailbox": mailbox,
+            "dry_run": dry_run,
+        }
+        # Open transport session; keep runner.session_for hookable for tests when using default httpses
+        if (chain.transport.name == "httpses"
+                and getattr(chain.transport, "user_agent_override", None) is None
+                and getattr(chain.transport, "impersonate", "chrome131") == "chrome131"):
+            session, ua = session_for(seed, route.proxy, http_version=http_ver)
+        else:
+            session, ua = chain.transport.open_session(
+                seed, route=route, base_url=base, ctx=ctx)
+
+        driver = driver_cls(route=route, session=session, mailbox=mailbox,
+                            db=db, dry_run=dry_run)
+        res["driver"] = driver.name
+        res["unattended_ok"] = driver.caps.unattended(chain)
+
+        if chain.claim.name == "readonly-lookup":
+            probes = []
+            for fqdn in chain.claim.pick(driver, seed):
+                cr = chain.claim.execute(driver, fqdn, ctx)
+                probes.append({"fqdn": cr.fqdn, "ok": cr.ok,
+                               "status": cr.status, "error": cr.error})
+                log(db, 0, "probe", f"{cr.fqdn} {cr.status or cr.error}")
+            res["probes"] = probes
+            avail = [p["fqdn"] for p in probes if p["ok"]]
+            if avail:
+                res["claimed"] = avail[0]
+            return RunResult(res)
+
+        ident = chain.identity.build(seed, mailbox=mailbox)
+        ctx["ident"] = ident
+        ctx["session"] = session
+    else:
+        ident = make_identity(seed)
+        if mailbox is not None:
+            box = mailbox.create(seed)
+            ident["email"] = box.address
+            ident["email_token"] = box.token
+            ident["mailbox"] = box
+        session, ua = session_for(seed, route.proxy, http_version=http_ver)
+        driver = driver_cls(route=route, session=session, mailbox=mailbox,
+                            db=db, dry_run=dry_run)
+        res["driver"], res["unattended_ok"] = driver.name, driver.caps.unattended()
 
     acc_id = add_account(db, tenant_id, ident, route.url(), route.exit_ip)
     res["account_id"], res["email"] = acc_id, ident["email"]
     log(db, acc_id, "route", f"mode={route.mode} ip={route.exit_ip} ua={ua[:36]}")
+
+    if chain is not None:
+        gres = chain.gate.run(ctx)
+        log(db, acc_id, "gate", f"{chain.gate.name} ok={gres.ok} {gres.detail}")
+        if not gres.ok:
+            set_status(db, acc_id, "needs_verify", f"gate:{chain.gate.name}")
+            return RunResult(res, error=f"gate:{chain.gate.name}:{gres.detail}")
+        if gres.data:
+            ident.update(gres.data)
+
+        pres = chain.payment.run(ctx)
+        log(db, acc_id, "payment", f"{chain.payment.name} ok={pres.ok} {pres.detail}")
+        if not pres.ok:
+            set_status(db, acc_id, "pending", f"payment:{chain.payment.name}")
+            return RunResult(res, error=f"payment:{chain.payment.name}:{pres.detail}")
+        if pres.data:
+            ident.update(pres.data)
 
     try:
         out = driver.signup(ident)
@@ -96,19 +165,23 @@ def run_account(db, driver_cls, tenant_id, seed=None, route=None,
 
     claimed = None
     if driver.caps.claim and contact_ok:
-        fqdn = _pick_fqdn(seed, driver)
-        try:
-            cr = driver.claim(fqdn)
-            log(db, acc_id, "claim",
-                f"{'ok' if cr.ok else 'fail'} {cr.fqdn} {cr.error or ''}"
-                f" exp={cr.expires_at}")
-            if cr.ok:
-                add_domain(db, acc_id, cr.fqdn, _tld(cr.fqdn),
-                           expires_at=cr.expires_at, epp=cr.epp)
-                claimed = cr.fqdn
-                res.update(claimed=cr.fqdn, expires=cr.expires_at, epp=cr.epp)
-        except Exception as e:
-            log(db, acc_id, "claim_fail", repr(e)[:300])
+        candidates = (chain.claim.pick(driver, seed)
+                      if chain is not None else [_pick_fqdn(seed, driver)])
+        for fqdn in candidates:
+            try:
+                cr = (chain.claim.execute(driver, fqdn, ctx)
+                      if chain is not None else driver.claim(fqdn))
+                log(db, acc_id, "claim",
+                    f"{'ok' if cr.ok else 'fail'} {cr.fqdn} {cr.error or ''}"
+                    f" exp={cr.expires_at}")
+                if cr.ok:
+                    add_domain(db, acc_id, cr.fqdn, _tld(cr.fqdn),
+                               expires_at=cr.expires_at, epp=cr.epp)
+                    claimed = cr.fqdn
+                    res.update(claimed=cr.fqdn, expires=cr.expires_at, epp=cr.epp)
+                    break
+            except Exception as e:
+                log(db, acc_id, "claim_fail", repr(e)[:300])
 
     set_status(db, acc_id, "active" if contact_ok else "pending",
                f"claimed={claimed}")

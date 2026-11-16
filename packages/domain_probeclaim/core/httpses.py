@@ -42,10 +42,13 @@ def user_agent(seed: str) -> str:
 
 
 def session_for(seed: str, proxy=None, impersonate=IMPERSONATE,
-                http_version=None):
+                http_version=None, user_agent_override: str | None = None):
     """Create configured session with user agent and optional proxy."""
-    ua = user_agent(seed)
+    ua = user_agent_override or user_agent(seed)
     headers = dict(BASE_HEADERS, **{"User-Agent": ua})
+    if user_agent_override and "safari" in user_agent_override.lower() and "chrome" not in user_agent_override.lower():
+        for k in ("Sec-Ch-Ua", "Sec-Ch-Ua-Mobile", "Sec-Ch-Ua-Platform"):
+            headers.pop(k, None)
     px = proxy["url"] if proxy else None
     proxies = {"http": px, "https": px} if px else None
 
@@ -66,6 +69,19 @@ def session_for(seed: str, proxy=None, impersonate=IMPERSONATE,
     s.mount("https://", a)
     s.mount("http://", a)
     return s, ua
+
+
+def sync_session_ua(session, ua: str) -> None:
+    """Align session User-Agent header with solver-bound UA (e.g. cfast profile)."""
+    if not ua or session is None:
+        return
+    headers = getattr(session, "headers", None)
+    if headers is None:
+        return
+    headers["User-Agent"] = ua
+    if "safari" in ua.lower() and "chrome" not in ua.lower():
+        for k in ("Sec-Ch-Ua", "Sec-Ch-Ua-Mobile", "Sec-Ch-Ua-Platform"):
+            headers.pop(k, None)
 
 
 def get_json(s, url, **kw):

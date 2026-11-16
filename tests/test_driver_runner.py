@@ -217,7 +217,7 @@ def test_runner_mode_direct_full_lifecycle(monkeypatch, client, db):
     tid = upsert_tenant(db, "mock", "mock")
     route = netpool.resolve_route("s", mode="direct", ip_checker=lambda: "10.1.1.1")
     res = run_account(db, MockDriver, tid, seed="run-direct-1",
-                      route=route, mailbox=MockMailbox())
+                      route=route, mailbox=MockMailbox(), quiet_hours=False)
     assert res["mode"] == "direct"
     assert res["claimed"], res
     assert res["expires"], res
@@ -229,10 +229,10 @@ def test_runner_mode_direct_guard_triggered(monkeypatch, client, db):
     tid = upsert_tenant(db, "mock", "mock")
     route = netpool.resolve_route("s", mode="direct", ip_checker=lambda: "10.2.2.2")
     r1 = run_account(db, MockDriver, tid, seed="guard-1", route=route,
-                     mailbox=MockMailbox(), max_per_ip=1)
+                     mailbox=MockMailbox(), max_per_ip=1, quiet_hours=False)
     assert r1.get("claimed")
     r2 = run_account(db, MockDriver, tid, seed="guard-2", route=route,
-                     mailbox=MockMailbox(), max_per_ip=1)
+                     mailbox=MockMailbox(), max_per_ip=1, quiet_hours=False)
     assert r2.get("error") == "ip_guard"
 
 
@@ -246,7 +246,7 @@ def test_runner_mode_pool_routes_via_proxy(tmp_path, monkeypatch, client, db):
     tid = upsert_tenant(db, "mock", "mock")
     route = netpool.resolve_route("s", pool=pool, mode="auto")
     res = run_account(db, MockDriver, tid, seed="pool-1", route=route,
-                      mailbox=MockMailbox())
+                      mailbox=MockMailbox(), quiet_hours=False)
     assert res["mode"] == "pool"
     assert res["exit_ip"] == "5.5.5.5"
     assert res["claimed"]
@@ -257,7 +257,7 @@ def test_runner_dry_run_preserves_state(db):
     tid = upsert_tenant(db, "mock", "mock")
     route = netpool.resolve_route("s", mode="direct", ip_checker=lambda: "10.9.9.9")
     res = run_account(db, MockDriver, tid, seed="dry-1", route=route,
-                      mailbox=MockMailbox(), dry_run=True)
+                      mailbox=MockMailbox(), dry_run=True, quiet_hours=False)
     assert res.get("dry_run")
     assert c(db)["domains"] == 0
 
@@ -267,6 +267,7 @@ def test_runner_batch_stops_at_guard(monkeypatch, client, db):
     tid = upsert_tenant(db, "mock", "mock")
     route = netpool.resolve_route("s", mode="direct", ip_checker=lambda: "10.3.3.3")
     out = run_batch(db, MockDriver, tid, count=4, route=route,
-                    mailbox=MockMailbox(), max_per_ip=2, no_sleep=True)
+                    mailbox=MockMailbox(), max_per_ip=2, no_sleep=True,
+                    quiet_hours=False)
     assert len(out) == 3
     assert out[-1].get("error") == "ip_guard"
